@@ -17,13 +17,21 @@ class DPI_QRS_Detector:
         self.debug_info = debug_info
         pass
 
+    def pow2length(self, length):
+        '''Smallest power of 2 larger than length.'''
+        ans = 1
+        if length <= 0:
+            return ans
+        while ans < length:
+            ans *= 2
+        return ans
+
     def HPF(self, raw_sig, fs = 250.0, fc = 8.0):
         '''High pass filtering of raw_sig.'''
-        padding_size = 0
-        if padding_size > 0:
-            raw_sig.extend([0,] * padding_size)
 
-        freq_arr = fft.fft(raw_sig)
+        len_pow2 = self.pow2length(len(raw_sig))
+        
+        freq_arr = fft.fft(raw_sig, len_pow2)
         # High pass filtering
         len_freq = freq_arr.size
         N = len_freq
@@ -39,28 +47,58 @@ class DPI_QRS_Detector:
 
             freq_arr[ind] *= filter_val
 
-        rev_sig = fft.ifft(freq_arr)
-
-        # plt.plot(rev_sig, label = 'reversed_signal')
-        # plt.plot(raw_sig, label = 'original signal')
-        # plt.title('Reverse signal')
-        # plt.legend()
-        # plt.show()
+        rev_sig = fft.ifft(freq_arr, len_pow2)
 
         return rev_sig
+
+    def eliminate_peak_valley_pairs(self, peak_arr, valley_arr, 
+                                    min_peak_valley_distance):
+        '''Eliminate nearby peak-valley pairs.'''
+        p1 = 0
+        p2 = 0
+        len_peak = len(peak_arr)
+        len_valley = len(valley_arr)
+
+        filtered_peaks = list()
+        filtered_valleys = list()
+
+        while p1 < len_peak and p2 < len_valley:
+            peak_pos = peak_arr[p1]
+            valley_pos = valley_arr[p2]
+            
+            cur_distance = abs(peak_pos - valley_pos)
+            if cur_distance <= min_peak_valley_distance:
+                p1 += 1
+                p2 += 1
+                continue
+
+            if peak_pos < valley_pos:
+                filtered_peaks.append(peak_pos)
+                p1 += 1
+            else :
+                filtered_valleys.append(valley_pos)
+                p2 += 1
+                
+        return (filtered_peaks, filtered_valleys)
+        
     def QRS_Detection(self, raw_sig, fs = 250.0):
         '''High pass filtering.'''
 
         if 'time_cost' in self.debug_info:
             start_time = time.time()
 
+        len_sig = len(raw_sig)
         fsig = self.HPF(raw_sig)
+        fsig = fsig[:len_sig]
 
         # DPI
         m1 = -2
         # According to maximum heart rate
         min_distance_to_current_QRS = fs * 0.3
-        N_m2 = int(fs * 1.71)
+        # N_m2 = int(fs * 1.71)
+        N_m2 = int(fs * 1.91)
+        # search_radius = fs * 285.0 / 1000
+        search_radius = fs / 250.0 * 10
         len_sig = fsig.size
 
         qrs_arr = list()
@@ -86,39 +124,47 @@ class DPI_QRS_Detector:
                 if s_avg < 1e-6:
                     s_avg = 1.0
 
-                dpi_val = np.abs(fsig[ind]) / s_avg
+                dpi_val = np.abs(float(fsig[ind])) / s_avg
                 dpi_arr.append(dpi_val)
             # Find cross zeros
             dpi_difference = [x[1] - x[0] for x in zip(dpi_arr, dpi_arr[1:])]
-            cross_zero_positions = [0,] * len(dpi_difference)
             peak_arr = list()
             valley_arr = list()
-            for diff_ind in xrange(1, len(cross_zero_positions)):
-                if dpi_difference[diff_ind] == 0:
-                    cross_zero_positions[diff_ind] = 2
-                elif dpi_difference[diff_ind - 1] * dpi_difference[diff_ind] < 0:
+            for diff_ind in xrange(1, len(dpi_difference)):
+                if dpi_difference[diff_ind - 1] * dpi_difference[diff_ind] < 0:
                     if dpi_difference[diff_ind] > 0:
-                        cross_zero_positions[diff_ind] = -1
                         valley_arr.append(diff_ind)
                     else :
-                        cross_zero_positions[diff_ind] = 1
                         peak_arr.append(diff_ind)
 
+            # Connect nearby peak-valley pairs
+            min_peak_valley_distance = fs / 250.0 * 3
+            peak_arr, valley_arr = self.eliminate_peak_valley_pairs(peak_arr,
+                                             valley_arr, 
+                                             min_peak_valley_distance)
             # Find max swing
             max_swing_value = None
             max_swing_pair = [0,0]
-            prev_peak_position = None
-            for cross_ind, val in enumerate(cross_zero_positions):
-                if val == 1:
-                    prev_peak_position = cross_ind
-                elif val == -1:
-                    if prev_peak_position is not None:
-                        cur_amplitude_difference = dpi_arr[prev_peak_position] - dpi_arr[cross_ind]
-                        if cross_ind >= min_distance_to_current_QRS:
-                            if max_swing_value is None or max_swing_value < cur_amplitude_difference:
-                                max_swing_value = cur_amplitude_difference
-                                max_swing_pair = [prev_peak_position, cross_ind]
-                    prev_peak_position = None
+            # prev_peak_position = None
+            pt_peak = 0
+            pt_valley = 0
+            len_peaks = len(peak_arr)
+            len_valleys = len(valley_arr)
+            while pt_peak < len_peaks and pt_valley < len_valleys:
+                peak_pos = peak_arr[pt_peak]
+                valley_pos = valley_arr[pt_valley]
+
+                if peak_pos < valley_pos :
+                    cur_amplitude_difference = dpi_arr[peak_pos] - dpi_arr[valley_pos]
+                    if valley_pos >= min_distance_to_current_QRS:
+                        if max_swing_value is None or max_swing_value < cur_amplitude_difference:
+                            max_swing_value = cur_amplitude_difference
+                            max_swing_pair = [peak_pos, valley_pos]
+                
+                if peak_pos < valley_pos:
+                    pt_peak += 1
+                else:
+                    pt_valley += 1
             if max_swing_value is None:
                 # Special case: a large blank region without QRS
                 if ind + N_m2 < len_sig:
@@ -126,10 +172,9 @@ class DPI_QRS_Detector:
                     continue
                 break
             center_pos = sum(max_swing_pair) / 2.0
-            search_radius = fs * 285.0 / 1000
 
-            search_left = int(max(0, center_pos - search_radius + ind))
-            search_right = int(min(len_sig - 1, center_pos + search_radius + ind))
+            search_left = int(max(0, max_swing_pair[0]- search_radius + ind))
+            search_right = int(min(len_sig - 1, max_swing_pair[1]+ search_radius + ind))
 
             
             qrs_position = int(center_pos + ind)
@@ -143,7 +188,7 @@ class DPI_QRS_Detector:
 
 
             # debug
-            if 'decision_plot' in self.debug_info and ind > 28400:
+            if 'decision_plot' in self.debug_info and ind > self.debug_info['decision_plot']:
                 plt.plot(xrange(ind, ind + len(dpi_arr)), dpi_arr, label = 'DPI')
                 plt.plot(fsig, label = 'fsig')
                 amp_list = [fsig[x] for x in qrs_arr]
@@ -193,14 +238,16 @@ class DPI_QRS_Detector:
 
 if __name__ == '__main__':
     qt = QTloader()
-    recname = qt.getreclist()[8]
+    recname = qt.getreclist()[4]
     print 'record name:', recname
 
     sig = qt.load(recname)
-    raw_sig = sig['sig'][0:100000]
+    raw_sig = sig['sig'][0:]
 
 
-    detector = DPI_QRS_Detector(debug_info = {'time_cost':True,
-                                              'decision_plot':True})
+    debug_info = dict()
+    debug_info['time_cost'] = True
+    # debug_info['decision_plot'] = 97450 
+    detector = DPI_QRS_Detector(debug_info = debug_info)
     detector.QRS_Detection(raw_sig)
     
