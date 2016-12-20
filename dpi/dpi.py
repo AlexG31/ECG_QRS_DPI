@@ -130,20 +130,23 @@ def DPI(fs = 250.0):
 
 def QRS_Detection(fs = 250.0):
     '''High pass filtering.'''
+
     qt = QTloader()
-    sig = qt.load('sel100')
-    raw_sig = sig['sig'][0:1000]
+    print qt.getreclist()
+
+    sig = qt.load('sel40')
+    raw_sig = sig['sig'][0:5500]
     fsig = HPF(raw_sig)
 
     # DPI
     m1 = -2
     len_sig = fsig.size
-    dpi_arr = list()
 
     qrs_arr = list()
     ind = 10
 
     while ind < len_sig:
+        dpi_arr = list()
         N_m2 = int(fs * 1.71)
         for m2 in xrange(0, N_m2):
             lower_index = ind + m1 + 1
@@ -198,8 +201,8 @@ def QRS_Detection(fs = 250.0):
         center_pos = sum(max_swing_pair) / 2.0
         search_radius = fs * 285.0 / 1000
 
-        search_left = int(max(0, center_pos - search_radius))
-        search_right = int(min(len_sig - 1, center_pos + search_radius))
+        search_left = int(max(0, center_pos - search_radius + ind))
+        search_right = int(min(len_sig - 1, center_pos + search_radius + ind))
 
         max_qrs_amplitude = fsig[center_pos]
         qrs_position = center_pos
@@ -210,10 +213,24 @@ def QRS_Detection(fs = 250.0):
                 max_qrs_amplitude = sig_val
                 qrs_position = sig_ind
 
-        if ind + qrs_position >= len_sig:
+        # debug
+        # plt.plot(xrange(ind, ind + len(dpi_arr)), dpi_arr, label = 'DPI')
+        # plt.plot(fsig, label = 'fsig')
+        # amp_list = [fsig[x] for x in qrs_arr]
+        # plt.plot(qrs_arr, amp_list, 'g^', markersize = 12, label = 'QRS detected')
+        # plt.plot(np.array(max_swing_pair) + ind, [dpi_arr[x] for x in max_swing_pair], 'md', markersize = 12,
+                 # label = 'max_swing_pair')
+        # plt.plot(ind, fsig[ind], 'mx', markersize = 12, label = 'current index position')
+        # plt.title('DPI')
+        # plt.legend()
+        # plt.show()
+
+        if qrs_position >= len_sig or qrs_position <= ind:
             break
-        qrs_arr.append(qrs_position + ind)
-        ind += qrs_position
+        qrs_arr.append(qrs_position)
+        ind = qrs_position
+
+
             
 
     plt.plot(xrange(ind, ind + len(dpi_arr)), dpi_arr, label = 'DPI')
@@ -224,4 +241,5 @@ def QRS_Detection(fs = 250.0):
     plt.legend()
     plt.show()
     
+
 QRS_Detection()
