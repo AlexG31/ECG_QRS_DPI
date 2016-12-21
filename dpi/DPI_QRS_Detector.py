@@ -81,6 +81,30 @@ class DPI_QRS_Detector:
                 
         return (filtered_peaks, filtered_valleys)
         
+    def search_for_maximum_qrs(self, ind, center_pos,
+            search_left, search_right, fsig):
+        '''Search for maximum amplitude QRS in [search_left, search_right].'''
+        qrs_position = int(center_pos + ind)
+        max_qrs_amplitude = abs(fsig[qrs_position])
+
+        for sig_ind in xrange(search_left, search_right + 1):
+            sig_val = abs(fsig[sig_ind])
+            if sig_val > max_qrs_amplitude:
+                max_qrs_amplitude = sig_val
+                qrs_position = sig_ind
+        if fsig[qrs_position] >= 0:
+            return qrs_position
+
+        # Now search for the maximum amplitude before current qrs_position
+        max_qrs_amplitude = fsig[qrs_position]
+        for sig_ind in xrange(search_left, qrs_position + 1):
+            sig_val = fsig[sig_ind]
+            if sig_val > max_qrs_amplitude:
+                max_qrs_amplitude = sig_val
+                qrs_position = sig_ind
+            
+        return qrs_position
+
     def QRS_Detection(self, raw_sig, fs = 250.0):
         '''High pass filtering.'''
 
@@ -156,7 +180,7 @@ class DPI_QRS_Detector:
 
                 if peak_pos < valley_pos :
                     cur_amplitude_difference = dpi_arr[peak_pos] - dpi_arr[valley_pos]
-                    if valley_pos >= min_distance_to_current_QRS:
+                    if peak_pos >= min_distance_to_current_QRS:
                         if max_swing_value is None or max_swing_value < cur_amplitude_difference:
                             max_swing_value = cur_amplitude_difference
                             max_swing_pair = [peak_pos, valley_pos]
@@ -176,15 +200,8 @@ class DPI_QRS_Detector:
             search_left = int(max(0, max_swing_pair[0]- search_radius + ind))
             search_right = int(min(len_sig - 1, max_swing_pair[1]+ search_radius + ind))
 
-            
-            qrs_position = int(center_pos + ind)
-            max_qrs_amplitude = fsig[qrs_position]
-
-            for sig_ind in xrange(search_left, search_right + 1):
-                sig_val = fsig[sig_ind]
-                if sig_val > max_qrs_amplitude:
-                    max_qrs_amplitude = sig_val
-                    qrs_position = sig_ind
+            qrs_position = self.search_for_maximum_qrs(ind, center_pos,
+                    search_left, search_right, fsig)
 
 
             # debug
@@ -225,7 +242,6 @@ class DPI_QRS_Detector:
             print '** Time cost ** %f seconds' % (time.time() - start_time)
             print '*' * 15
 
-        print 'current index:', ind
 
         # plt.plot(xrange(ind, ind + len(dpi_arr)), dpi_arr, label = 'DPI')
         plt.plot(fsig, label = 'fsig')
@@ -238,7 +254,7 @@ class DPI_QRS_Detector:
 
 if __name__ == '__main__':
     qt = QTloader()
-    recname = qt.getreclist()[4]
+    recname = qt.getreclist()[5]
     print 'record name:', recname
 
     sig = qt.load(recname)
@@ -247,7 +263,7 @@ if __name__ == '__main__':
 
     debug_info = dict()
     debug_info['time_cost'] = True
-    # debug_info['decision_plot'] = 97450 
+    # debug_info['decision_plot'] = 27600 
     detector = DPI_QRS_Detector(debug_info = debug_info)
     detector.QRS_Detection(raw_sig)
     
