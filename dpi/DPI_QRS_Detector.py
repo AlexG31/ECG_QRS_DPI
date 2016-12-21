@@ -67,7 +67,10 @@ class DPI_QRS_Detector:
             valley_pos = valley_arr[p2]
             
             cur_distance = abs(peak_pos - valley_pos)
-            if cur_distance <= min_peak_valley_distance:
+
+            # This algorithm will not eliminate the last peak and last valley
+            if (cur_distance <= min_peak_valley_distance and
+                    p1 < len_peak - 1 and p2 < len_valley - 1):
                 p1 += 1
                 p2 += 1
                 continue
@@ -75,10 +78,20 @@ class DPI_QRS_Detector:
             if peak_pos < valley_pos:
                 filtered_peaks.append(peak_pos)
                 p1 += 1
-            else :
+            else:
                 filtered_valleys.append(valley_pos)
                 p2 += 1
                 
+        # Processing remaining peaks & valleys
+        while p1 < len_peak:
+            peak_pos = peak_arr[p1]
+            filtered_peaks.append(peak_pos)
+            p1 += 1
+        while p2 < len_valley:
+            valley_pos = valley_arr[p2]
+            filtered_valleys.append(valley_pos)
+            p2 += 1
+
         return (filtered_peaks, filtered_valleys)
         
     def search_for_maximum_qrs(self, ind, center_pos,
@@ -112,13 +125,13 @@ class DPI_QRS_Detector:
             start_time = time.time()
 
         len_sig = len(raw_sig)
-        fsig = self.HPF(raw_sig)
+        fsig = self.HPF(raw_sig, fc = 35.0)
         fsig = fsig[:len_sig]
 
         # DPI
         m1 = -2
         # According to maximum heart rate
-        min_distance_to_current_QRS = fs * 0.3
+        min_distance_to_current_QRS = fs * 0.2
         # N_m2 = int(fs * 1.71)
         N_m2 = int(fs * 1.91)
         # search_radius = fs * 285.0 / 1000
@@ -178,7 +191,8 @@ class DPI_QRS_Detector:
                 peak_pos = peak_arr[pt_peak]
                 valley_pos = valley_arr[pt_valley]
 
-                if peak_pos < valley_pos :
+                # Keep 1 peak away from current QRS
+                if peak_pos < valley_pos and pt_peak > -1:
                     cur_amplitude_difference = dpi_arr[peak_pos] - dpi_arr[valley_pos]
                     if peak_pos >= min_distance_to_current_QRS:
                         if max_swing_value is None or max_swing_value < cur_amplitude_difference:
@@ -244,17 +258,25 @@ class DPI_QRS_Detector:
 
 
         # plt.plot(xrange(ind, ind + len(dpi_arr)), dpi_arr, label = 'DPI')
+        plt.figure(1)
         plt.plot(fsig, label = 'fsig')
         amp_list = [fsig[x] for x in qrs_arr]
         plt.plot(qrs_arr, amp_list, 'r^', markersize = 12)
         plt.title('DPI')
         plt.legend()
-        plt.show()
     
+        plt.figure(3)
+        plt.plot(raw_sig, label = 'raw signal')
+        amp_list = [raw_sig[x] for x in qrs_arr]
+        plt.plot(qrs_arr, amp_list, 'r^', markersize = 12)
+        plt.title('Raw signal')
+        plt.legend()
+
+        return qrs_arr
 
 if __name__ == '__main__':
     qt = QTloader()
-    recname = qt.getreclist()[5]
+    recname = qt.getreclist()[11]
     print 'record name:', recname
 
     sig = qt.load(recname)
@@ -263,7 +285,15 @@ if __name__ == '__main__':
 
     debug_info = dict()
     debug_info['time_cost'] = True
-    # debug_info['decision_plot'] = 27600 
+    # debug_info['decision_plot'] = 11000
     detector = DPI_QRS_Detector(debug_info = debug_info)
-    detector.QRS_Detection(raw_sig)
+    qrs_arr = detector.QRS_Detection(raw_sig)
+
+    # Plot R-R histogram
+    plt.figure(2)
+    diff_arr = [x[1] - x[0] for x in zip(qrs_arr, qrs_arr[1:])]
+    plt.hist(diff_arr, bins = 30*6, range = (0,max(450, max(diff_arr))))
+    plt.title('R-R histogram')
+    plt.grid(True)
+    plt.show()
     
