@@ -98,6 +98,9 @@ class DPI_QRS_Detector:
             search_left, search_right, fsig):
         '''Search for maximum amplitude QRS in [search_left, search_right].'''
         qrs_position = int(center_pos + ind)
+        qrs_position = min(qrs_position, len(fsig) - 1)
+        qrs_position = max(qrs_position, 0)
+
         max_qrs_amplitude = abs(fsig[qrs_position])
 
         for sig_ind in xrange(search_left, search_right + 1):
@@ -133,7 +136,7 @@ class DPI_QRS_Detector:
         # According to maximum heart rate
         min_distance_to_current_QRS = fs * 0.2
         # N_m2 = int(fs * 1.71)
-        N_m2 = int(fs * 1.91)
+        N_m2 = int(fs * 2.21)
         # search_radius = fs * 285.0 / 1000
         search_radius = fs / 250.0 * 10
         len_sig = fsig.size
@@ -258,25 +261,26 @@ class DPI_QRS_Detector:
 
 
         # plt.plot(xrange(ind, ind + len(dpi_arr)), dpi_arr, label = 'DPI')
-        plt.figure(1)
-        plt.plot(fsig, label = 'fsig')
-        amp_list = [fsig[x] for x in qrs_arr]
-        plt.plot(qrs_arr, amp_list, 'r^', markersize = 12)
-        plt.title('DPI')
-        plt.legend()
-    
-        plt.figure(3)
-        plt.plot(raw_sig, label = 'raw signal')
-        amp_list = [raw_sig[x] for x in qrs_arr]
-        plt.plot(qrs_arr, amp_list, 'r^', markersize = 12)
-        plt.title('Raw signal')
-        plt.legend()
+        if 'plot_results' in self.debug_info:
+            plt.figure(1)
+            plt.plot(fsig, label = 'fsig')
+            amp_list = [fsig[x] for x in qrs_arr]
+            plt.plot(qrs_arr, amp_list, 'r^', markersize = 12)
+            plt.title('DPI')
+            plt.legend()
+        
+            plt.figure(3)
+            plt.plot(raw_sig, label = 'raw signal')
+            amp_list = [raw_sig[x] for x in qrs_arr]
+            plt.plot(qrs_arr, amp_list, 'r^', markersize = 12)
+            plt.title('Raw signal')
+            plt.legend()
 
         return qrs_arr
 
 if __name__ == '__main__':
     qt = QTloader()
-    recname = qt.getreclist()[11]
+    recname = qt.getreclist()[67]
     print 'record name:', recname
 
     sig = qt.load(recname)
@@ -285,7 +289,8 @@ if __name__ == '__main__':
 
     debug_info = dict()
     debug_info['time_cost'] = True
-    # debug_info['decision_plot'] = 11000
+    debug_info['plot_results'] = True
+    # debug_info['decision_plot'] = 25262
     detector = DPI_QRS_Detector(debug_info = debug_info)
     qrs_arr = detector.QRS_Detection(raw_sig)
 
