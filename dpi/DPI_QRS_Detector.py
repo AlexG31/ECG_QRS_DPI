@@ -29,7 +29,14 @@ class DPI_QRS_Detector:
     def HPF(self, raw_sig, fs = 250.0, fc = 8.0):
         '''High pass filtering of raw_sig.'''
 
-        len_pow2 = self.pow2length(len(raw_sig))
+        if isinstance(raw_sig, list):
+            len_sig = len(raw_sig)
+        elif isinstance(raw_sig, np.ndarray):
+            len_sig = raw_sig.size
+        else:
+            raise Exception('Input signal is not a list/np.array type!')
+
+        len_pow2 = self.pow2length(len_sig)
         
         freq_arr = fft.fft(raw_sig, len_pow2)
         # High pass filtering
@@ -127,7 +134,13 @@ class DPI_QRS_Detector:
         if 'time_cost' in self.debug_info:
             start_time = time.time()
 
-        len_sig = len(raw_sig)
+        if isinstance(raw_sig, list):
+            len_sig = len(raw_sig)
+        elif isinstance(raw_sig, np.ndarray):
+            len_sig = raw_sig.size
+        else:
+            raise Exception('Input signal is not a list/np.array type!')
+
         fsig = self.HPF(raw_sig, fc = 35.0)
         fsig = fsig[:len_sig]
 
@@ -164,7 +177,7 @@ class DPI_QRS_Detector:
                 if s_avg < 1e-6:
                     s_avg = 1.0
 
-                dpi_val = np.abs(float(fsig[ind])) / s_avg
+                dpi_val = np.abs(fsig[ind]) / s_avg
                 dpi_arr.append(dpi_val)
             # Find cross zeros
             dpi_difference = [x[1] - x[0] for x in zip(dpi_arr, dpi_arr[1:])]
@@ -292,7 +305,7 @@ if __name__ == '__main__':
     debug_info['plot_results'] = True
     # debug_info['decision_plot'] = 25262
     detector = DPI_QRS_Detector(debug_info = debug_info)
-    qrs_arr = detector.QRS_Detection(raw_sig)
+    qrs_arr = detector.QRS_Detection(np.array(raw_sig))
 
     # Plot R-R histogram
     plt.figure(2)
