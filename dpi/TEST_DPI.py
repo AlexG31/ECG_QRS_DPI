@@ -3,10 +3,12 @@ import os
 import sys
 import bisect
 import matplotlib.pyplot as plt
+import pdb
 
 
 from DPI_QRS_Detector import DPI_QRS_Detector as DPI
 from QTdata.loadQTdata import QTloader
+from ecgloader.MITdbLoader import MITdbLoader
 
 def GetFN(R_pos_list, qrs_list):
     '''Get False Negtives.'''
@@ -76,6 +78,53 @@ def Test1():
             plt.plot(R_pos_list, amp_list, 'ys', markersize = 14)
             plt.show()
 
+def TestMit():
+    '''Comparing to expert labels in Mitdb.'''
+    mit = MITdbLoader()
+    reclist = mit.getRecIDList()
+    print dir(mit)
 
-Test1()
+    
+
+    rec_ind = 0
+    for rec_ind in xrange(3, len(reclist)):
+
+        print 'Processing record[%d] %s ...' % (rec_ind, reclist[rec_ind])
+        sig = mit.load(reclist[rec_ind])
+        raw_sig = sig
+        # expert_labels = mit.getExpert(reclist[rec_ind])
+        R_pos_list = [int(round(x)) for x in mit.markpos]
+
+        # plt.plot(sig)
+        # amp_list = [sig[int(x)] for x in R_pos_list]
+        # plt.plot(R_pos_list, amp_list, 'ro', markersize = 12)
+        # plt.show()
+
+        # Skip empty expert lists
+        if len(R_pos_list) == 0:
+            continue
+
+        debug_info = dict()
+        debug_info['time_cost'] = 75410
+        # debug_info['decision_plot'] = 57181
+        dpi = DPI(debug_info = debug_info)
+        qrs_list = dpi.QRS_Detection(raw_sig, fs = 360)
+
+        # Find FN
+        FN_arr = GetFN(R_pos_list, qrs_list)
+        R_pos_list = FN_arr
+        
+        if len(R_pos_list) > 0:
+            plt.plot(raw_sig)
+            amp_list = [raw_sig[x] for x in qrs_list]
+            plt.plot(qrs_list, amp_list, 'ro', markersize = 12, label = 'Detected R with DPI')
+            amp_list = [raw_sig[x] for x in R_pos_list]
+            plt.plot(R_pos_list, amp_list, 'ys', markersize = 14, label = 'Expert labels')
+            plt.legend()
+            plt.title('Record %s' % reclist[rec_ind])
+            plt.show()
+
+
+
+TestMit()
 
