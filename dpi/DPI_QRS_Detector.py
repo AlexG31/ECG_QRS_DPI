@@ -59,10 +59,13 @@ class DPI_QRS_Detector:
         return rev_sig
 
     def eliminate_peak_valley_pairs(self, peak_arr, valley_arr, 
-                                    min_peak_valley_distance):
+                                    min_peak_valley_distance, fs):
         '''Eliminate nearby peak-valley pairs.'''
         p1 = 0
         p2 = 0
+        continuous_eliminate_count = 0
+        last_eliminate_position = 0
+
         len_peak = len(peak_arr)
         len_valley = len(valley_arr)
 
@@ -73,14 +76,23 @@ class DPI_QRS_Detector:
             peak_pos = peak_arr[p1]
             valley_pos = valley_arr[p2]
             
+            # Continuous eliminate count
+            if abs(min(peak_pos, valley_pos) - last_eliminate_position) > fs / 50.0:
+                continuous_eliminate_count = 0
+                
             cur_distance = abs(peak_pos - valley_pos)
 
             # This algorithm will not eliminate the last peak and last valley
             if (cur_distance <= min_peak_valley_distance and
                     p1 < len_peak - 1 and p2 < len_valley - 1):
-                p1 += 1
-                p2 += 1
-                continue
+                if continuous_eliminate_count >= 3:
+                    continuous_eliminate_count = 0
+                else:
+                    p1 += 1
+                    p2 += 1
+                    last_eliminate_position = max(peak_pos, valley_pos)
+                    continuous_eliminate_count += 1
+                    continue
 
             if peak_pos < valley_pos:
                 filtered_peaks.append(peak_pos)
@@ -194,7 +206,8 @@ class DPI_QRS_Detector:
             min_peak_valley_distance = fs / 250.0 * 3
             peak_arr, valley_arr = self.eliminate_peak_valley_pairs(peak_arr,
                                              valley_arr, 
-                                             min_peak_valley_distance)
+                                             min_peak_valley_distance,
+                                             fs = fs)
             # Find max swing
             max_swing_value = None
             max_swing_pair = [0,0]

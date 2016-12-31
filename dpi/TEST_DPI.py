@@ -3,7 +3,9 @@ import os
 import sys
 import bisect
 import matplotlib.pyplot as plt
+import numpy as  np
 import pdb
+import pickle
 
 
 from DPI_QRS_Detector import DPI_QRS_Detector as DPI
@@ -124,7 +126,30 @@ def TestMit():
             plt.title('Record %s' % reclist[rec_ind])
             plt.show()
 
+def TestZN():
+    with open('./data.pkl', 'rb') as fin:
+        data = pickle.load(fin)
+
+    sig = data.tolist()
+    raw_sig = np.squeeze(sig['II'])
+    raw_sig  = [x / 100.0 for x in raw_sig]
+    
+    debug_info = dict()
+    debug_info['time_cost'] = 75410
+    debug_info['decision_plot'] = 3517
+    dpi = DPI(debug_info = debug_info)
+    qrs_list = dpi.QRS_Detection(raw_sig, fs = 500.0)
+
+    # pdb.set_trace()
+    plt.plot(raw_sig)
+    amp_list = [raw_sig[x] for x in qrs_list]
+    plt.plot(qrs_list, amp_list, 'ro', markersize = 12, label = 'Detected R with DPI')
+    plt.legend()
+    plt.show()
 
 
-TestMit()
+
+
+# TestMit()
+TestZN()
 
