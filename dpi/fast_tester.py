@@ -1,4 +1,6 @@
 #encoding:utf8
+
+
 import os
 import sys
 import bisect
@@ -69,5 +71,33 @@ class FastTester():
 
             detected_results.extend(zip(detected_poslist, [target_label, ] * len(detected_poslist)))
         return detected_results
+
+
+def test0():
+    '''Test code for fast_tester.'''
+    from QTdata.loadQTdata import QTloader
+    qt = QTloader()
+    sig = qt.load('sel100')
+
+    range_right = 1000
+    raw_sig = sig['sig2'][0:range_right]
+
+    ft = FastTester()
+    res_list = ft.testing(raw_sig, fs = 250.0)
+    labels = set([x[1] for x in res_list])
+    plt.plot(raw_sig)
+    for label in labels:
+        poslist = [x[0] for x in filter(lambda x: x[1] == label, res_list)]
+        amplist = [raw_sig[int(x)] for x in filter(lambda x: x < range_right, poslist)] 
+        plt.plot(poslist, amplist, 'o', markersize = 12, alpha = 0.5, label = label)
+    plt.title('sel100')
+    plt.legend()
+    plt.show()
+
+
+if __name__ == '__main__':
+    test0()
+    
+    
         
 
