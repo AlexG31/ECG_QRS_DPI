@@ -41,6 +41,11 @@ class DPI_QRS_Detector:
         freq_arr = fft.fft(raw_sig, len_pow2)
         # High pass filtering
         len_freq = freq_arr.size
+
+        # Skip short signals
+        if len_freq <= 2:
+            return raw_sig
+
         N = len_freq
         
         for ind in xrange(0, len_freq):
@@ -55,6 +60,7 @@ class DPI_QRS_Detector:
             freq_arr[ind] *= filter_val
 
         rev_sig = fft.ifft(freq_arr, len_pow2)
+        rev_sig = rev_sig[:len_sig]
 
         return rev_sig
 
