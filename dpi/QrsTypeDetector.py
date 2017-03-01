@@ -191,6 +191,11 @@ class QrsTypeDetector(object):
     def GetQrsType(self, raw_sig, q_index, r_index, s_index,
             MaxAmplitude = 400, MaxSearchLengthMs = 10, debug_plot = False):
         '''Get type of QRS such as rsR'.'''
+        raw_sig = np.array(raw_sig) * 1000.0
+        r_index = int(r_index)
+        q_index = int(q_index)
+        s_index = int(s_index)
+
         MaxAmplitude = np.nanmax(raw_sig)
         Q_amplitude_threshold = 100.0
         LargeWaveThreshold = 250.0
@@ -254,7 +259,6 @@ class QrsTypeDetector(object):
         qrs_type = q_type + qrs_type[1:]
 
 
-            
         
         # s
         # left_bound = max(r_index, s_index - MaxSearchIndexLen)

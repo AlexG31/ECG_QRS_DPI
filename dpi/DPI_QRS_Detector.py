@@ -146,8 +146,9 @@ class DPI_QRS_Detector:
             
         return qrs_position
 
-    def QRS_Detection(self, raw_sig, fs = 250.0):
+    def QRS_Detection(self, raw_sig_in, fs = 250.0):
         '''High pass filtering.'''
+        raw_sig = raw_sig_in[:]
 
         if 'time_cost' in self.debug_info:
             start_time = time.time()
