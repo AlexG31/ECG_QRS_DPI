@@ -9,7 +9,6 @@ import numpy.fft as fft
 import pdb
 import numpy as np
 
-from QTdata.loadQTdata import QTloader
 
 class DPI_QRS_Detector:
     '''QRS Detector with DPI.'''
@@ -312,6 +311,7 @@ class DPI_QRS_Detector:
         return qrs_arr
 
 if __name__ == '__main__':
+    from QTdata.loadQTdata import QTloader
     qt = QTloader()
     recname = qt.getreclist()[67]
     print 'record name:', recname
