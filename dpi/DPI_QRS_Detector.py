@@ -2,7 +2,6 @@
 
 import os
 import sys
-import matplotlib.pyplot as plt
 import math
 import time
 import numpy.fft as fft
@@ -255,6 +254,7 @@ class DPI_QRS_Detector:
 
             # debug
             if 'decision_plot' in self.debug_info and ind > self.debug_info['decision_plot']:
+                import matplotlib.pyplot as plt
                 plt.plot(xrange(ind, ind + len(dpi_arr)), dpi_arr, label = 'DPI')
                 plt.plot(fsig, label = 'fsig')
                 amp_list = [fsig[x] for x in qrs_arr]
@@ -294,6 +294,7 @@ class DPI_QRS_Detector:
 
         # plt.plot(xrange(ind, ind + len(dpi_arr)), dpi_arr, label = 'DPI')
         if 'plot_results' in self.debug_info:
+            import matplotlib.pyplot as plt
             plt.figure(1)
             plt.plot(fsig, label = 'fsig')
             amp_list = [fsig[x] for x in qrs_arr]
@@ -328,6 +329,7 @@ if __name__ == '__main__':
     qrs_arr = detector.QRS_Detection(np.array(raw_sig))
 
     # Plot R-R histogram
+    import matplotlib.pyplot as plt
     plt.figure(2)
     diff_arr = [x[1] - x[0] for x in zip(qrs_arr, qrs_arr[1:])]
     plt.hist(diff_arr, bins = 30*6, range = (0,max(450, max(diff_arr))))
